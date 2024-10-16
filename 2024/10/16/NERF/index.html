@@ -1,0 +1,381 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>NERF | NotSilenBlog</title><meta name="author" content="Silen Li"><meta name="copyright" content="Silen Li"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="NERF学习来源：【较真系列】讲人话-NeRF全解（原理+代码+公式） 什么是NeRF?广义理解定义： 使用神经网络(MLP)来隐式的存储3D信息。  显式的3D信息：有明确x，y，z的值(mesh，voxel，点云…) mesh：明确的xyz矩阵+边的关系   隐式的3D信息：无明确的x&#x2F;y&#x2F;z的值，只能输出指定角度的2D图片。   训练时使用给定静止场景下的若干张图片">
+<meta property="og:type" content="article">
+<meta property="og:title" content="NERF">
+<meta property="og:url" content="https://notsilenblog.zeabur.app/2024/10/16/NERF/index.html">
+<meta property="og:site_name" content="NotSilenBlog">
+<meta property="og:description" content="NERF学习来源：【较真系列】讲人话-NeRF全解（原理+代码+公式） 什么是NeRF?广义理解定义： 使用神经网络(MLP)来隐式的存储3D信息。  显式的3D信息：有明确x，y，z的值(mesh，voxel，点云…) mesh：明确的xyz矩阵+边的关系   隐式的3D信息：无明确的x&#x2F;y&#x2F;z的值，只能输出指定角度的2D图片。   训练时使用给定静止场景下的若干张图片">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png">
+<meta property="article:published_time" content="2024-10-16T08:17:25.182Z">
+<meta property="article:modified_time" content="2024-10-16T08:20:58.238Z">
+<meta property="article:author" content="Silen Li">
+<meta property="article:tag" content="数字人">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://notsilenblog.zeabur.app/2024/10/16/NERF/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.13.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.33/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":false,"top_n_per_article":1,"unescape":false,"languages":{"hits_empty":"找不到您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'NERF',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2024-10-16 16:20:58'
+}</script><script>(win=>{
+      win.saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+    
+      win.getScript = (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        script.onerror = reject
+        script.onload = script.onreadystatechange = function() {
+          const loadState = this.readyState
+          if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+          script.onload = script.onreadystatechange = null
+          resolve()
+        }
+
+        Object.keys(attr).forEach(key => {
+          script.setAttribute(key, attr[key])
+        })
+
+        document.head.appendChild(script)
+      })
+    
+      win.getCSS = (url, id = false) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onerror = reject
+        link.onload = link.onreadystatechange = function() {
+          const loadState = this.readyState
+          if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+          link.onload = link.onreadystatechange = null
+          resolve()
+        }
+        document.head.appendChild(link)
+      })
+    
+      win.activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      win.activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })(window)</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">2</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">2</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">0</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page group" href="javascript:void(0);"><i class="fa-fw fa fa-graduation-cap"></i><span> 博文</span><i class="fas fa-chevron-down"></i></a><ul class="menus_item_child"><li><a class="site-page child" href="/categories/"><i class="fa-fw fa fa-archive"></i><span> 分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="fa-fw fa fa-tags"></i><span> 标签</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="NotSilenBlog"><span class="site-name">NotSilenBlog</span></a></span><div id="menus"><div id="search-button"><a class="site-page social-icon search" href="javascript:void(0);"><i class="fas fa-search fa-fw"></i><span> 搜索</span></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 主页</span></a></div><div class="menus_item"><a class="site-page group" href="javascript:void(0);"><i class="fa-fw fa fa-graduation-cap"></i><span> 博文</span><i class="fas fa-chevron-down"></i></a><ul class="menus_item_child"><li><a class="site-page child" href="/categories/"><i class="fa-fw fa fa-archive"></i><span> 分类</span></a></li><li><a class="site-page child" href="/tags/"><i class="fa-fw fa fa-tags"></i><span> 标签</span></a></li></ul></div></div><div id="toggle-menu"><a class="site-page" href="javascript:void(0);"><i class="fas fa-bars fa-fw"></i></a></div></div></nav><div id="post-info"><h1 class="post-title">NERF</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2024-10-16T08:17:25.182Z" title="发表于 2024-10-16 16:17:25">2024-10-16</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2024-10-16T08:20:58.238Z" title="更新于 2024-10-16 16:20:58">2024-10-16</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">字数总计:</span><span class="word-count">3.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>13分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title="NERF"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><h1 id="NERF"><a href="#NERF" class="headerlink" title="NERF"></a>NERF</h1><p>学习来源：<a target="_blank" rel="noopener" href="https://www.bilibili.com/video/BV1CC411V7oq/?spm_id_from=333.999.0.0&vd_source=2c97cd7eec4f38788b5479fea364bd65">【较真系列】讲人话-NeRF全解（原理+代码+公式）</a></p>
+<h3 id="什么是NeRF"><a href="#什么是NeRF" class="headerlink" title="什么是NeRF?"></a>什么是NeRF?</h3><h5 id="广义理解定义："><a href="#广义理解定义：" class="headerlink" title="广义理解定义："></a>广义理解定义：</h5><ul>
+<li><p>使用神经网络(MLP)来<strong>隐式的</strong>存储3D信息。</p>
+<ul>
+<li>显式的3D信息：有明确x，y，z的值(mesh，voxel，点云…)<ul>
+<li>mesh：明确的xyz矩阵+边的关系</li>
+</ul>
+</li>
+<li>隐式的3D信息：无明确的x&#x2F;y&#x2F;z的值，只能输出指定角度的2D图片。</li>
+</ul>
+</li>
+<li><p>训练时使用给定静止场景下的若干张图片</p>
+<img src="/2024/10/16/NERF/image-20240924091335377.png" alt="image-20240924091335377" style="zoom:80%;"></li>
+</ul>
+<h5 id="推论："><a href="#推论：" class="headerlink" title="推论："></a>推论：</h5><ul>
+<li>模型不具有泛化能力</li>
+<li>一个模型只能存储一个3D信息</li>
+</ul>
+<p><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2003.08934">论文：</a></p>
+<ol>
+<li>模型输入是5D向量→粒子的空间位姿(x, y, z, theta, phi)</li>
+<li>模型输出是4D向量→粒子对应的颜色以及密度(密度，颜色RGB)</li>
+<li>模型是8层的MLP</li>
+</ol>
+<p>模型前处理：图像转5D向量</p>
+<p>模型后处理：4D向量转2D图片</p>
+<h3 id="真实场景及相机模型"><a href="#真实场景及相机模型" class="headerlink" title="真实场景及相机模型"></a>真实场景及相机模型</h3><p>真实场景：有多个光源+不同物体间的折射&#x2F;反射</p>
+<p><img src="/2024/10/16/NERF/image-20240924094319157.png" alt="image-20240924094319157" style="zoom:80%;"><img src="/2024/10/16/NERF/image-20240924094415221.png" alt="image-20240924094415221" style="zoom:80%;"></p>
+<p>相机模型：连接3d世界与2d图片</p>
+<ul>
+<li>世界坐标系</li>
+<li>相机坐标系</li>
+<li>归一化相机坐标系（物理成像平面CCD）</li>
+<li>像素坐标系（UV坐标）</li>
+</ul>
+<p>补充：<a target="_blank" rel="noopener" href="https://blog.csdn.net/MengYa_Dream/article/details/120233806">图像处理：4个坐标系及相关转换</a></p>
+<h4 id="体渲染"><a href="#体渲染" class="headerlink" title="体渲染"></a>体渲染</h4><p>定义：</p>
+<ul>
+<li>属于渲染技术的分支，目的是解决云&#x2F;烟&#x2F;果冻等非刚性物体的渲染建模</li>
+<li>将物质抽象成一团飘忽不定的粒子群</li>
+<li>光线在穿过时，是光子在跟粒子发生碰撞的过程。</li>
+</ul>
+<p>光子与粒子发生作用的过程：</p>
+<ul>
+<li>吸收：光子被粒子吸收</li>
+<li>放射：粒子本身发光</li>
+<li>外射光：光泽在冲击后，被弹射</li>
+<li>内射光：其他方向弹射来的粒子</li>
+</ul>
+<h5 id="NeRF假设："><a href="#NeRF假设：" class="headerlink" title="NeRF假设："></a>NeRF假设：</h5><ul>
+<li>物体是一团自发光的粒子，粒子有密度和颜色</li>
+<li>外射光和内射光抵消</li>
+<li>多个自发光的粒子被渲染成指定角度的图片</li>
+</ul>
+<h3 id="NeRF的输入和输出"><a href="#NeRF的输入和输出" class="headerlink" title="NeRF的输入和输出"></a>NeRF的输入和输出</h3><p>模型的输入：将物体进行稀疏表示的<strong>单个粒子的位姿</strong></p>
+<p>模型的输出：<strong>该粒子的密度和颜色</strong></p>
+<img src="/2024/10/16/NERF/image-20240924095330940.png" alt="image-20240924095330940" style="zoom: 60%;">
+
+<p>问题：</p>
+<ul>
+<li>图片呢？</li>
+<li>怎么得到这些粒子？</li>
+<li>多少个粒子?这些粒子怎么批量输入？</li>
+<li>这些粒子是怎么渲染成新的图片的？</li>
+</ul>
+<h3 id="粒子的采集"><a href="#粒子的采集" class="headerlink" title="粒子的采集"></a>粒子的采集</h3><h4 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h4><p>对于空间中的某一个自发光粒子：假设空间坐标(x,y,z)，发射的光线通过相机模型成为图片上的像素坐标(u,v)，粒子颜色即为像素颜色。</p>
+<p>(u,v)与(x,y,z)的公式如下：</p>
+<img src="/2024/10/16/NERF/image-20240924095751794.png" alt="image-20240924095751794" style="zoom:70%;">
+
+<p>反之，对于图片上的某一个像素(u,v)的颜色，可以看作是<strong>沿着某一条射线上的无数个发光点的“和”</strong>。</p>
+<p>利用相机模型，反推射线，那么这个射线表示为：$r(t)&#x3D;o+td$，$o$为射线原点，$d$为方向，$t$为距离，理论上t是从0到$+∞$；用极坐标表示。</p>
+<p><img src="/2024/10/16/NERF/image-20240924100410260.png" alt="image-20240924100410260"></p>
+<p>如果一张照片是H×W的大小，对于整张图片共有(H,W)条射线。</p>
+<h4 id="光线原理"><a href="#光线原理" class="headerlink" title="光线原理"></a>光线原理</h4><p>由像素点P(u, v)反推射线：</p>
+<ul>
+<li>像素平面→物理成像平面：$(x_n, y_n)&#x3D;(-(u-\frac{w}{2}),v-\frac{h}{2})$</li>
+<li>物理成像平面→相机坐标系：$(x_c, y_c, z_c)&#x3D;(x_n, y_n, -f)$，其中f为焦距</li>
+<li>归一化：$(x_c, y_c, z_c)&#x3D;(\frac{x_c}{f}, \frac{y_c}{f}, -1)$</li>
+<li>相机坐标系→世界坐标系：$(x_w, y_w, z_w)&#x3D;c2w*(x_c, y_c, z_c)$，其中c2w指camera to world(RT旋转矩阵)</li>
+</ul>
+<p><img src="/2024/10/16/NERF/image-20241010204145148.png" alt="image-20241010204145148"></p>
+<h4 id="光线代码pytorch-nerf"><a href="#光线代码pytorch-nerf" class="headerlink" title="光线代码pytorch_nerf"></a>光线代码pytorch_nerf</h4><p><img src="/2024/10/16/NERF/image-20241010205316190.png" alt="image-20241010205316190"></p>
+<ul>
+<li>输入：h*w，k相机内参，c2w旋转矩阵+平移矩阵</li>
+<li>i,j：像素的表达，eg: h&#x3D;400,w&#x3D;400，i,j表示(0,0)(0,1)…</li>
+<li>dirs：directions，归一化的相机坐标</li>
+<li>rays_d：dirs*c2w，射线的<strong>方向</strong>，世界坐标系</li>
+<li>rays_o：世界坐标系的原点，相机坐标原点*c2w</li>
+<li>输出：rays_o,rays_d，射线的表达</li>
+</ul>
+<p>因为图像的射线有h×w个，过多，要进行筛选，所以引入batch_size，一般为1024。因为原点的表示为[x0,y0,z0]，图像上的一点为[x1,y1,z1]，所以距离为[x0-x1,y0-y1,z0-z1]，即三维[1024,3]。采样是random随机采集像素。采样一般有两种，一种是一张图片选1024个，一种是所有图片中选1024个，每个射线*各自c2w以解决不同的位姿。</p>
+<h4 id="粒子采样原理"><a href="#粒子采样原理" class="headerlink" title="粒子采样原理"></a>粒子采样原理</h4><p>对于图片上的某一个像素(u,v)：沿着某一条射线上的无数个发光点的“和”，射线表示为：$r(t)&#x3D;o+td$，其中o为射线原点，d为方向，t为距离。理论上t从0到+∞。</p>
+<p>但在计算中t是离散的，所以选择t的方法如下：设置near&#x3D;2,far&#x3D;6，在near和far之间均匀采样64个点，得到$t_i&#x3D;U[t_n+\frac{i-1}{N}(t_f-t_n), t_n+\frac{i}{N}(t_f-t_n)]$</p>
+<p>在2-6中均匀采样64个点并加一些噪声，加一些扰动（效果更好，对feature的噪声更加鲁棒）<br>Robustness：承受故障和干扰的能力，一些异常的数据对整体性能的影响不大。</p>
+<h4 id="粒子采样代码"><a href="#粒子采样代码" class="headerlink" title="粒子采样代码"></a>粒子采样代码</h4><p><img src="/2024/10/16/NERF/image-20241010210044743.png" alt="image-20241010210044743"></p>
+<ul>
+<li><p>near和far：size是(1024,1)，near每个数字都是2，far每个数字都是6</p>
+</li>
+<li><p>linespace：从0-1中采样64个</p>
+</li>
+<li><p>一共是1024*64个点，shape是(1024,64,3)</p>
+</li>
+</ul>
+<h3 id="回答关于输入的问题"><a href="#回答关于输入的问题" class="headerlink" title="回答关于输入的问题"></a>回答关于输入的问题</h3><ol>
+<li>图片呢?怎么得到这些粒子?<br>从图片和相机位姿计算射线，从射线上采样粒子</li>
+<li>多少个粒子?这些粒子怎么批量输入?<br>训练时，一张图片取1024个像素，得到1024条射线，每条射线上采样64个粒子，共1024*64个粒子，粒子以batch形式输入模型</li>
+<li>如何从2D的UV变成5D的输入？<br>以batch形式输入，[1024*64,3]，其中3代表[x,y,z]<br>输入是x,y, z, theta, phi，theta和phi在正常3D表示中分别代表了仰角和方位角，在代码里通过rays_d表示</li>
+</ol>
+<h3 id="输出是什么？"><a href="#输出是什么？" class="headerlink" title="输出是什么？"></a>输出是什么？</h3><p>模型的输出：该粒子的密度和颜色</p>
+<p><img src="/2024/10/16/NERF/image-20241010210440705.png" alt="image-20241010210440705"></p>
+<ul>
+<li>pts：1024<em>64</em>3，即xyz</li>
+<li>viewdirs：方向向量rays_d</li>
+<li>network_fn：MLP多层感知器</li>
+</ul>
+<h3 id="模型结构"><a href="#模型结构" class="headerlink" title="模型结构"></a>模型结构</h3><p>8层全连接层，半路再次输入位置坐标，后半路输出密度σ，后半路输入方向视角，最后输出颜色RGB</p>
+<p><img src="/2024/10/16/NERF/image-20241010211442328.png" alt="image-20241010211442328"></p>
+<h3 id="位置编码"><a href="#位置编码" class="headerlink" title="位置编码"></a>位置编码</h3><p><img src="/2024/10/16/NERF/image-20241010210917779.png" alt="image-20241010210917779"></p>
+<p>如果只输入3D的xyz和3D的theta,phi，会丢失细节。所以引入位置编码，即加入sin和cos，和transformer一样</p>
+<ul>
+<li>对于空间坐标x，即xyz，对于每一维度都计算sin和cos，L&#x3D;10即在0-10进行计算，有20个数，三维加在一起是60维</li>
+<li>对于视角坐标d，即rays_d，L&#x3D;4即在0-4进行计算，有8个数，三维加在一起是24维</li>
+<li>最后加上原始的三个维度，得到xyz是63维，d是27维【初始值是代表原点？】</li>
+</ul>
+<p>L的值不是固定不变的，可能作者觉得粒子的坐标比方向更重要，所以如此取值。因为模型先通过坐标得到了密度的输出后，在加上direction的信息得到颜色（观测方向不应当影响密度，但会改变颜色）</p>
+<h3 id="模型结构代码"><a href="#模型结构代码" class="headerlink" title="模型结构代码"></a>模型结构代码</h3><p><img src="/2024/10/16/NERF/image-20241010211137004.png" alt="image-20241010211137004"></p>
+<p>整体就是全连接层FC的叠加。在第5层时再次输入位置坐标，即256+63&#x3D;319；在倒数第二层加入了direction的信息，即256+27&#x3D;283</p>
+<h3 id="Loss的计算"><a href="#Loss的计算" class="headerlink" title="Loss的计算"></a>Loss的计算</h3><p>采用自监督：GT是图片某一像素的RGB，将该像素对应光线上的粒子颜色进行求和</p>
+<p>粒子的颜色和：该像素颜色的预测值</p>
+<p>粒子的颜色和（真实GT的颜色）与像素颜色（预测的颜色）做MSE：$L&#x3D;\sum_{r∈R}||\hat{C}(r)-C(r)||_2^2$，其中r是射线，R是每个batch的射线(1024条)</p>
+<h3 id="体渲染-1"><a href="#体渲染-1" class="headerlink" title="体渲染"></a>体渲染</h3><p>如何将光线上粒子颜色进行求和？</p>
+<p>T(s)：在s点之前，光线没有被阻碍的概率；如果光线被阻碍，T(s)&#x3D;0，则无后续颜色</p>
+<p>σ(s)：在s点处，光线碰击粒子(光线被粒子阻碍)的概率密度</p>
+<p>C(s)：在s点处，粒子光出的颜色</p>
+<p>σ(s)和C(s)是模型的输出，各点的颜色和概率密度已知，先求T(s)</p>
+<p>$\hat{C(r)}&#x3D;\int_0^{+\infty}T(s)\sigma(s)C(s)ds$</p>
+<p>$T(s)&#x3D;e^{-\int_0^s\sigma(t)dt}$</p>
+<p><img src="/2024/10/16/NERF/image-20241016135927932.png" alt="image-20241016135927932" style="zoom: 80%;"><img src="/2024/10/16/NERF/image-20241016140605711.png" alt="image-20241016140605711" style="zoom:80%;"></p>
+<h4 id="T-s-的推导"><a href="#T-s-的推导" class="headerlink" title="T(s)的推导"></a>T(s)的推导</h4><p>σ表示密度，密度越大，不被阻拦的概率越小，即1-σ(s)ds</p>
+<p>T(0)在原点不被阻障的概率，T(0)&#x3D;1，lnT(0)&#x3D;0</p>
+<p>$T(s+ds)&#x3D;T(s)[1-\sigma(s)ds]&#x3D;T(s)-T(s)\sigma(s)ds$</p>
+<p>$T(s+ds)-T(s)&#x3D;-T(s)\sigma(s)ds$</p>
+<p>$dT(s)&#x3D;-T(s)\sigma(s)ds$</p>
+<p>$ \frac{dT(s)}{T(s)}&#x3D;-\sigma(s)ds$</p>
+<p>$\int_0^t-\sigma(s)ds&#x3D;\int_0^t\frac{dT(s)}{T(s)}&#x3D;\int_0^t\frac{1}{T(s)}dT(s)&#x3D;\ln T(s)\vert_0^t&#x3D;\ln T(t)-\ln T(0)&#x3D;\ln T(t)$</p>
+<p>$T(t)&#x3D;e^{-\int_0^s\sigma(t)dt}$</p>
+<h4 id="离散积分"><a href="#离散积分" class="headerlink" title="离散积分"></a>离散积分</h4><p>计算机只能处理离散化数据</p>
+<p>将光线[0,s]划分为N个等间距区间[$T_n$→$T_{n+1}$]，其中n&#x3D;0,1,2,…,N；间隔长度为$\delta_n$，假设区间内密度$\sigma_n$和颜色$C_n$固定</p>
+<p>$\hat{C(r)}&#x3D;\sum_{i&#x3D;1}^NT_i(1-e^{-\sigma_i\delta_i})C_i$，where $T_i&#x3D;e^{-\sum_{j&#x3D;1}^{i-1}\sigma_j\delta_j}$</p>
+<h5 id="离散积分推导"><a href="#离散积分推导" class="headerlink" title="离散积分推导"></a>离散积分推导</h5><p>每个光区贡献光强进行累加$\hat{C}&#x3D;\sum_{n&#x3D;0}^NI(T_n\rightarrow T_{n+1})$，其中s是沿光流方向的光线的长度，I(s)是距离s处的光强度</p>
+<p>$$<br>\begin{align*}<br>I(T_n\rightarrow T_{n+1}) &amp;&#x3D; \int_{t_n}^{t_{n+1}}T(t)\sigma(n)C(n)dt \<br>&amp;&#x3D; \sigma(n)C(n)\int_{t_n}^{t_{n+1}}T(t)dt \<br>&amp;&#x3D; \sigma(n)C(n)\int_{t_n}^{t_{n+1}}e^{-\int_0^t\sigma(s)ds}dt\<br>&amp;&#x3D; \sigma(n)C(n)\int_{t_n}^{t_{n+1}}e^{-(\int_0^{t_n}\sigma(s)ds+\int_{t_n}^t\sigma(s)ds)}dt\<br>&amp;&#x3D; \sigma(n)C(n)\int_{t_n}^{t_{n+1}}e^{-\int_0^{t_n}\sigma(s)ds}e^{-\int_{t_n}^t\sigma(s)ds}dt\<br>&amp;&#x3D; \sigma(n)C(n)T(0\rightarrow t_n)\int_{t_n}^{t_{n+1}}e^{-\int_{t_n}^t\sigma(s)ds}dt\<br>&amp;&#x3D; \sigma(n)C(n)T(0\rightarrow t_n)\int_{t_n}^{t_{n+1}}e^{-\int_{t_n}^t\sigma_nds}dt\<br>&amp;&#x3D; \sigma(n)C(n)T(0\rightarrow t_n)\int_{t_n}^{t_{n+1}}e^{-\sigma_n(t-t_n)}dt【注：\sigma(n)是常数，做积分原函数是x，故得到t-t_n】\<br>&amp;&#x3D; \sigma(n)C(n)T(0\rightarrow t_n)[-\frac1{\sigma_n}e^{-\sigma_n(t-t_n)}\vert_{t_n}^{t_{n+1}}]\<br>&amp;&#x3D; \sigma(n)C(n)T(0\rightarrow t_n)(-\frac1{\sigma_n}(e^{-\sigma_n\delta_n}-1))【注：e^{-\sigma_n(t-t_n)}\vert_{t_n}^{t_{n+1}} &#x3D; e^{-\sigma_n(t_{n+1}-t_n)}-e^{-\sigma_n(t_n-t_n)} &#x3D; e^{-\sigma_n\delta_n}-1】\<br>&amp;&#x3D; C(n)T(0\rightarrow t_n)(-e^{-\sigma_n\delta_n}+1)【注：约去\sigma(n)】\<br>&amp;&#x3D; C(n)e^{-\sum_{i&#x3D;0}^{n-1}\sigma_i\delta_i}(-e^{-\sigma_n\delta_n}+1)【注：T(0\rightarrow t_n)&#x3D;e^{-\int_0^{t_n}\sigma(s)ds}&#x3D;e^{-\sum_{i&#x3D;0}^{n-1}\sigma_i\delta_i}】\<br>\end{align*}<br>$$<br>$\hat{C}&#x3D;\sum_{n&#x3D;0}^NI(T_n\rightarrow T_{n+1})&#x3D;\sum_{n&#x3D;0}^NC_ne^{-\sum_{i&#x3D;0}^{n-1}\sigma_i\delta_i}(-e^{1-\sigma_n\delta_n})$</p>
+<p>设$\alpha_n&#x3D;1-e^{-\sigma_n\delta_n}$，即$e^{-\sigma_n\delta_n}&#x3D;1-a_n$可以看作第n个点的不透明度<br>$$<br>\begin{align*}<br>e^{-\sum_{i&#x3D;0}^{n-1}\sigma_i\delta_i} &amp;&#x3D; e^{-(\sigma_0\delta_0+\sigma_1\delta_1+…+\sigma_{n-1}\delta_{n-1})}\<br>&amp;&#x3D; e^{-\sigma_0\delta_0}e^{-\sigma_1\delta_1}…e^{-\sigma_{n-1}\delta_{n-1}}\<br>&amp;&#x3D; (1-a_0)(1-a_1)…(1-a_{n-1})\<br>故\hat{C}&amp;&#x3D;\sum_{n&#x3D;0}^NC_na_n(1-a_0)(1-a_1)…(1-a_{n-1})\<br>&amp;&#x3D;C_0a_0+C_1a_1(1-a_0)+C_2a_2(1-a_0)(1-a_1)+…+C_na_n(1-a_0)(1-a_1)…(1-a_{n-1})<br>\end{align*}<br>$$</p>
+<h4 id="代码"><a href="#代码" class="headerlink" title="代码"></a>代码</h4><p>delta_n：粒子取样的间隔，相同的数，大致都是0.06</p>
+<p><img src="/2024/10/16/NERF/image-20241016155640007.png" alt="image-20241016155640007"></p>
+<p>一个射线对应一个像素，最后得到1024*3，3指rgb</p>
+<h3 id="回答关于输出的问题"><a href="#回答关于输出的问题" class="headerlink" title="回答关于输出的问题"></a>回答关于输出的问题</h3><p>这些粒子是怎么渲染成新的图片的？<br>分别计算图片中每一个像素的颜色，计算该像素对应的光线和粒子，将这些粒子通过公式累加，得到该像素最终颜色。</p>
+<h3 id="二次采样"><a href="#二次采样" class="headerlink" title="二次采样"></a>二次采样</h3><p>目前有效区域和无效区域(空白区域和遮挡区域)都是均匀采样</p>
+<p>我们希望：有效区域多采样，无效区域少采样或不采样</p>
+<p>解决方法：可以根据概率密度进行再次采样</p>
+<p><img src="/2024/10/16/NERF/image-20241016160028491.png" alt="image-20241016160028491"></p>
+<h4 id="最终模型结构"><a href="#最终模型结构" class="headerlink" title="最终模型结构"></a>最终模型结构</h4><p>两个8层的MLP串联得到最终模型，第一个MLP为粗模型（均匀采样64个点，得到点的概率密度函数），第二个MLP叫细模型（根据一个模型的概率密度函数，二次采样更有价值点，再进行粒子的求和，得到最终的像素颜色值）</p>
+<p>粗模型和细模型结构相同，最后输出为模型2的输出</p>
+<h4 id="逆变换采样"><a href="#逆变换采样" class="headerlink" title="逆变换采样"></a>逆变换采样</h4><p>细模型根据密度进行二次采样的方法：</p>
+<ul>
+<li>根据粗模型的结果，进行逆变换采样。</li>
+<li>对于每条光线，重新采样128个粒子，与之前的64个粒子加在一起，即每条光线采样192个粒子。</li>
+<li>对于每条射线上的粒子颜色前的权重，即$\alpha_n(1-\alpha_0)(1-\alpha_1)…(1-\alpha_{n-1})$做softmax，即$\hat{w_j}&#x3D;\frac{w_i}{\sum_{j&#x3D;1}^{N_c}w_i}$，此时，新的权重和为1，可看作PDF(概率密度函数)</li>
+<li>生成它的cdf(累积分布函数，概率密度函数的积分)</li>
+<li>invert cdf(反函数)</li>
+<li>用均匀分布drand480生成一个随机数：invert(drand48)&#x3D;r，得到的r就是符合pdf分布的随机数</li>
+</ul>
+<h4 id="代码-1"><a href="#代码-1" class="headerlink" title="代码"></a>代码</h4><p><img src="/2024/10/16/NERF/image-20241016161034828.png" alt="image-20241016161034828"></p>
+<p>最后输出(192,3)维度的颜色数据</p>
+<h3 id="推理"><a href="#推理" class="headerlink" title="推理"></a>推理</h3><p>输入：400×400条射线上分别采样64个点</p>
+<p>输出：[400×400×192,4]，其中[h×w×192,4]中4指rgb和σ；进行体渲染</p>
+<p><img src="/2024/10/16/NERF/image-20241016161301952.png" alt="image-20241016161301952"></p>
+<h3 id="Loss是怎样计算的"><a href="#Loss是怎样计算的" class="headerlink" title="Loss是怎样计算的?"></a>Loss是怎样计算的?</h3><p><img src="https://upload-images.jianshu.io/upload_images/12824314-33db12476e16fd6a.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1142/format/webp" alt="img"></p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>前处理：</p>
+<ul>
+<li>将图片中的每个像素，通过相机模型找到对应的射线</li>
+<li>在每条射线上进行采样，得到64个粒子</li>
+<li>对batch_size*64个粒子进行位置编码</li>
+<li>位置坐标为63D和方向向量为27D</li>
+</ul>
+<p>模型1：</p>
+<ul>
+<li>8层MLP</li>
+<li>输入为(batch_size,64,63)和(batch_size,64,27)</li>
+<li>输出为(batch_size,64,4)</li>
+</ul>
+<p>后处理1：</p>
+<ul>
+<li>计算模型1的输出，对射线进行二次采样</li>
+<li>每条射线上共采样192个粒子</li>
+</ul>
+<p>模型2：</p>
+<ul>
+<li>8层MLP</li>
+<li>输入为(batch_size,192,63)和(batch_size,192,27)</li>
+<li>输出为(batch_size,192,4)</li>
+</ul>
+<p>后处理2：将模型2输出通过体渲染，转换为像素。</p>
+<p>核心内容：体渲染、位置编码、层级采样</p>
+<p>缺点：很慢，训练&#x2F;推理都慢；只能表达静态场景；对光照处理的一般；没有泛化能力。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://notsilenblog.zeabur.app">Silen Li</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://notsilenblog.zeabur.app/2024/10/16/NERF/">https://notsilenblog.zeabur.app/2024/10/16/NERF/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://notsilenblog.zeabur.app" target="_blank">NotSilenBlog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E6%95%B0%E5%AD%97%E4%BA%BA/">数字人</a></div><div class="post_share"><div class="social-share" data-image="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="next-post pull-full"><a href="/2024/08/04/%E5%90%B4%E6%81%A9%E8%BE%BE2022%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/" title="吴恩达2022机器学习"><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">吴恩达2022机器学习</div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://i.loli.net/2021/02/24/5O1day2nriDzjSu.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Silen Li</div><div class="author-info__description"></div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">2</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">2</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">0</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/XNDIC"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/XNDIC" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:llmjaz@163.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">依旧在深度学习的深海里挣扎</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#NERF"><span class="toc-number">1.</span> <span class="toc-text">NERF</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFNeRF"><span class="toc-number">1.0.1.</span> <span class="toc-text">什么是NeRF?</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%B9%BF%E4%B9%89%E7%90%86%E8%A7%A3%E5%AE%9A%E4%B9%89%EF%BC%9A"><span class="toc-number">1.0.1.0.1.</span> <span class="toc-text">广义理解定义：</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%8E%A8%E8%AE%BA%EF%BC%9A"><span class="toc-number">1.0.1.0.2.</span> <span class="toc-text">推论：</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%9C%9F%E5%AE%9E%E5%9C%BA%E6%99%AF%E5%8F%8A%E7%9B%B8%E6%9C%BA%E6%A8%A1%E5%9E%8B"><span class="toc-number">1.0.2.</span> <span class="toc-text">真实场景及相机模型</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BD%93%E6%B8%B2%E6%9F%93"><span class="toc-number">1.0.2.1.</span> <span class="toc-text">体渲染</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#NeRF%E5%81%87%E8%AE%BE%EF%BC%9A"><span class="toc-number">1.0.2.1.1.</span> <span class="toc-text">NeRF假设：</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#NeRF%E7%9A%84%E8%BE%93%E5%85%A5%E5%92%8C%E8%BE%93%E5%87%BA"><span class="toc-number">1.0.3.</span> <span class="toc-text">NeRF的输入和输出</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%B2%92%E5%AD%90%E7%9A%84%E9%87%87%E9%9B%86"><span class="toc-number">1.0.4.</span> <span class="toc-text">粒子的采集</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8E%9F%E7%90%86"><span class="toc-number">1.0.4.1.</span> <span class="toc-text">原理</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%85%89%E7%BA%BF%E5%8E%9F%E7%90%86"><span class="toc-number">1.0.4.2.</span> <span class="toc-text">光线原理</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%85%89%E7%BA%BF%E4%BB%A3%E7%A0%81pytorch-nerf"><span class="toc-number">1.0.4.3.</span> <span class="toc-text">光线代码pytorch_nerf</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%B2%92%E5%AD%90%E9%87%87%E6%A0%B7%E5%8E%9F%E7%90%86"><span class="toc-number">1.0.4.4.</span> <span class="toc-text">粒子采样原理</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%B2%92%E5%AD%90%E9%87%87%E6%A0%B7%E4%BB%A3%E7%A0%81"><span class="toc-number">1.0.4.5.</span> <span class="toc-text">粒子采样代码</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9B%9E%E7%AD%94%E5%85%B3%E4%BA%8E%E8%BE%93%E5%85%A5%E7%9A%84%E9%97%AE%E9%A2%98"><span class="toc-number">1.0.5.</span> <span class="toc-text">回答关于输入的问题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%BE%93%E5%87%BA%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.0.6.</span> <span class="toc-text">输出是什么？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A8%A1%E5%9E%8B%E7%BB%93%E6%9E%84"><span class="toc-number">1.0.7.</span> <span class="toc-text">模型结构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BD%8D%E7%BD%AE%E7%BC%96%E7%A0%81"><span class="toc-number">1.0.8.</span> <span class="toc-text">位置编码</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A8%A1%E5%9E%8B%E7%BB%93%E6%9E%84%E4%BB%A3%E7%A0%81"><span class="toc-number">1.0.9.</span> <span class="toc-text">模型结构代码</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Loss%E7%9A%84%E8%AE%A1%E7%AE%97"><span class="toc-number">1.0.10.</span> <span class="toc-text">Loss的计算</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BD%93%E6%B8%B2%E6%9F%93-1"><span class="toc-number">1.0.11.</span> <span class="toc-text">体渲染</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#T-s-%E7%9A%84%E6%8E%A8%E5%AF%BC"><span class="toc-number">1.0.11.1.</span> <span class="toc-text">T(s)的推导</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%A6%BB%E6%95%A3%E7%A7%AF%E5%88%86"><span class="toc-number">1.0.11.2.</span> <span class="toc-text">离散积分</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E7%A6%BB%E6%95%A3%E7%A7%AF%E5%88%86%E6%8E%A8%E5%AF%BC"><span class="toc-number">1.0.11.2.1.</span> <span class="toc-text">离散积分推导</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81"><span class="toc-number">1.0.11.3.</span> <span class="toc-text">代码</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9B%9E%E7%AD%94%E5%85%B3%E4%BA%8E%E8%BE%93%E5%87%BA%E7%9A%84%E9%97%AE%E9%A2%98"><span class="toc-number">1.0.12.</span> <span class="toc-text">回答关于输出的问题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%8C%E6%AC%A1%E9%87%87%E6%A0%B7"><span class="toc-number">1.0.13.</span> <span class="toc-text">二次采样</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%9C%80%E7%BB%88%E6%A8%A1%E5%9E%8B%E7%BB%93%E6%9E%84"><span class="toc-number">1.0.13.1.</span> <span class="toc-text">最终模型结构</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%80%86%E5%8F%98%E6%8D%A2%E9%87%87%E6%A0%B7"><span class="toc-number">1.0.13.2.</span> <span class="toc-text">逆变换采样</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81-1"><span class="toc-number">1.0.13.3.</span> <span class="toc-text">代码</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8E%A8%E7%90%86"><span class="toc-number">1.0.14.</span> <span class="toc-text">推理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Loss%E6%98%AF%E6%80%8E%E6%A0%B7%E8%AE%A1%E7%AE%97%E7%9A%84"><span class="toc-number">1.0.15.</span> <span class="toc-text">Loss是怎样计算的?</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">1.0.16.</span> <span class="toc-text">总结</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2024/10/16/NERF/" title="NERF">NERF</a><time datetime="2024-10-16T08:17:25.182Z" title="发表于 2024-10-16 16:17:25">2024-10-16</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2024/08/04/%E5%90%B4%E6%81%A9%E8%BE%BE2022%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/" title="吴恩达2022机器学习">吴恩达2022机器学习</a><time datetime="2024-08-04T11:50:56.461Z" title="发表于 2024-08-04 19:50:56">2024-08-04</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2024 By Silen Li</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.13.0"></script><script src="/js/main.js?v=4.13.0"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.33/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><span id="loading-status"></span><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="is-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据库加载中</span></div><div class="search-wrap"><div id="local-search-input"><div class="local-search-box"><input class="local-search-box--input" placeholder="搜索文章" type="text"/></div></div><hr/><div id="local-search-results"></div><div id="local-search-stats-wrap"></div></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=4.13.0"></script></div></div><!-- hexo injector body_end start -->
+  <script data-pjax src="/CDN/hexo_githubcalendar.js"></script>
+  <script data-pjax>
+        function GithubCalendarConfig(){
+            var git_githubapiurl ="https://github-calendar-api.meta-code.top/api?user=XNDIC";
+            var git_color =['#ebedf0', '#a2f7af', '#6ce480', '#54ad63', '#469252', '#31753c', '#1f5f2a', '#13531f', '#084111', '#032b09', '#000000'];
+            var git_user ="XNDIC";
+            var parent_div_git = document.getElementById('recent-posts');
+            var git_div_html = '<div class="recent-post-item" style="width:100%;height:auto;padding:10px;"><div id="github_loading" style="width:10%;height:100%;margin:0 auto;display: block"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"  viewBox="0 0 50 50" style="enable-background:new 0 0 50 50" xml:space="preserve"><path fill="#d0d0d0" d="M25.251,6.461c-10.318,0-18.683,8.365-18.683,18.683h4.068c0-8.071,6.543-14.615,14.615-14.615V6.461z" transform="rotate(275.098 25 25)"><animateTransform attributeType="xml" attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="0.6s" repeatCount="indefinite"></animateTransform></path></svg></div><div id="github_container"></div></div>';
+            if(parent_div_git && location.pathname =='/'){
+                console.log("已挂载hexo-github-calendar https://github.com/Barry-Flynn/hexo-github-calendar");
+                // parent_div_git.innerHTML=git_div_html+parent_div_git.innerHTML // 无报错，但不影响使用(支持pjax跳转)
+                parent_div_git.insertAdjacentHTML("afterbegin",git_div_html) // 有报错，但不影响使用(支持pjax跳转)
+            };
+            GithubCalendar(git_githubapiurl,git_color,git_user)
+        }
+        if(document.getElementById('recent-posts')){
+            GithubCalendarConfig()
+        }
+    </script>
+    <style>#github_container{min-height:280px}@media screen and (max-width:650px) {#github_container{background-image:;min-height:0px}}</style>
+    <style></style><!-- hexo injector body_end end --></body></html>
