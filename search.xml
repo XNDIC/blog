@@ -4,6 +4,25 @@
   
     
     <entry>
+      <title>PT预训练&amp;SFT有监督微调</title>
+      <link href="/2025/01/15/%E5%A4%A7%E6%A8%A1%E5%9E%8B/"/>
+      <url>/2025/01/15/%E5%A4%A7%E6%A8%A1%E5%9E%8B/</url>
+      
+        <content type="html"><![CDATA[<h2 id="PT预训练pre-training"><a href="#PT预训练pre-training" class="headerlink" title="PT预训练pre-training"></a>PT预训练pre-training</h2><p>要理解清楚这一训练过程，最主要的就是<strong>搞清楚预训练的数据怎么构造，数据怎么喂给模型，模型输出的是什么，以及如何计算loss</strong>。</p><p>这里通过一个完整的例子来介绍一下这个过程，假设现在有一个用来预训练的数据集</p><pre><code>你知道什么是微调吗？</code></pre><p>假设经过分词后：</p><pre><code>你：3知道：5什么：7是：2微调：9吗：4？：1</code></pre><p>原来的数据变为如下序列，后面补了三个0（假设最大序列长度是10）</p><pre><code>3 5 7 2 9 4 1 0 0 0 </code></pre><p>预测下一个token就类似于3预测5，35预测7，以此类推，但是如果这样拆成很多个数据段其实比较低效，因此就可以<strong>考虑移位来构造数据</strong>，即</p><ul><li>模型输入X为：3 5 7 2 9 4 1 0 0 0</li><li>模型输出targets为：5 7 2 9 4 1 0 0 0 0</li></ul><p>这样就可以一次性把整条序列喂给模型，计算一次就包含了6个预测下一个token的损失了。</p><p>注意这里模型的设计是有讲究的，我们不能让输入看到后面的词（如果看得到的话就没必要进行预测了），也就是“你”在模型内看不到“知道”，“你 知道”在模型内看不到“什么”，这个可以通过<strong>注意力机制</strong>实现。</p><p>现在模型的输入的维度为(1,10)，第一维为batch_size，然后经过embedding层后变为(1,10,768)，这里假设embedding的维度为768。</p><p>记住<strong>进入transfomer前后数据的维度不会发生变化</strong>，把transfomer当作一个黑盒，也就是transformer(X)的维度还是(1,10,768)，接下来就是基于它来进行预测了，因为要预测哪个词，词的可能情况就是词表的大小，所以做的就是一个分类任务，预测下一个token是词表中的哪一个（词表中的每一个词当作一个类别）。</p><p>为了完成分类任务，需要对transformer的输出做一个映射，映射到跟词表一样大，也就需要定义这样一个线性变换</p><pre><code>output_layer = nn.Linear(768, vocab_size, bias=False)</code></pre><p>然后<code>logits=output_layer(transformer(X))</code>的维度就是(1,10,vocab_size)，接下来就可以计算loss了，具体来说就是计算logits（模型预测）与targets（真实标签）之间的交叉熵损失，同时忽略了填充值对应的损失。</p><pre><code>loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=0)</code></pre><h2 id="有监督微调Supervised-fine-tuning-SFT"><a href="#有监督微调Supervised-fine-tuning-SFT" class="headerlink" title="有监督微调Supervised fine-tuning (SFT)"></a>有监督微调Supervised fine-tuning (SFT)</h2><p>       <strong>“有监督微调”意味着使用有标签的数据来调整一个已预训练好的语言模型（LLM），使其更适应某一特定任务</strong>。<br>      通常<strong>LLM的预训练是无监督的，但微调过程往往是有监督的</strong>。</p><p>       当进行有监督微调时，模型权重会根据与真实标签的差异进行调整。通过这个微调过程，模型能够捕捉到标签数据中特定于某一任务的模式和特点。使得模型更加精确，更好地适应某一特定任务。</p><p>         以一个简单的例子来说，你有一个已经预训练好的LLM。当输入“我不能登录我的账号，我该怎么办？”时，它可能简单地回答：“尝试使用‘忘记密码’功能来重置你的密码。”<br><img src="https://i-blog.csdnimg.cn/blog_migrate/316fbde3ffb1f91d7de3832227634bd0.png" alt="在这里插入图片描述"><br>         这个回答很直接，适用于一般问题，但如果是客服场景，可能就不太合适了。一个好的客服回答应该更有同情心，并且可能不会这么直接，甚至可能包含联系信息或其他细节。这时候，有监督微调就显得非常重要了。</p><p><img src="https://i-blog.csdnimg.cn/blog_migrate/8ffdaf5105f2d8419105c3de22d6b843.png" alt="在这里插入图片描述"><br>        经过有监督微调后，你的模型可以提供更加符合特定指导原则的答案。例如，经过一系列专业的培训示例后，你的模型可以更有同情心地回答客服问题。</p><hr><p>        接下来我们还是从数据到模型输出，计算loss的步骤来看看SFT的实现原理。</p><p>        首先还是来看看<strong>数据怎么构造</strong>，SFT的每一条样本一般由两部分组成，也就是prompt（instruction）+ answer，比如：</p><pre><code>prompt: 翻译以下句子: What is pretrainanswer: 什么是预训练</code></pre><p>        也就是我们要给模型提供一些类似于问答形式的答案来学习，有了前面预训练的经验后，SFT其实就很好理解的，它本质上也在做next token prediction，只是我们更希望模型关注answer部分的预测，这可以通过生成一个mask向量来屏蔽不希望计算loss的部分，下面就是数据构造的一个示意：做的事情就是拼接prompt和answer，并在answer两侧添加一个开始和结束的符号，算一下prompt&#x2F;instruction的长度，以及后面需要pad的长度，然后生成一个mask向量，answer部分为1，其他部分为0。</p><pre><code>input_id=prompt+[bos]+answer+[eos]context_length = input_id.index(bos)mask_position = context_length - 1pad_len = max_length - len(input_id)input_id = input_id + [pad] * pad_lenloss_mask = [0]*context_length+[1]*(len(input_id[mask_position+1:])) + [0]*pad_len</code></pre><p>        构造好输入后，token转为embedding，经过transformer的过程跟之前预训练完全一样，也就是我们又得到了一个维度是(1,10,vocab_size)的输出logits&#x3D;output_layer(transformer(X))，进一步就可以计算answer部分的loss了，<strong>其实就是通过mask把不希望考虑的地方乘以0，保留answer部分loss。</strong></p><pre><code>loss_mask = loss_mask.view(-1)loss = torch.sum(loss*loss_mask)/loss_mask.s</code></pre><p>有了loss，进行反向传播更新模型参数就OK。</p><p><strong>Q&amp;A</strong></p><blockquote><p>Q：预训练的数据是纯文本吧？模型输出应该和什么去对比计算这个loss？纯文本就没有一个类似于sft的output&#x2F;answer的标签吧？这个时候target是啥呢？<br>A：就是下一个词预测，和下一个词去计算loss</p></blockquote><blockquote><p>Q：词表的大小就是语料库大小吧<br>A：不是的，是分词器的token总数</p></blockquote><blockquote><p>Q：会不会生成和 标准答案长度不一样的 答案呢？这样的画怎么计算loss？<br>A：逐个token生成和计算的哈；训练是逐个token预测的。 推理没有长度限制</p></blockquote><blockquote><p>Q：SFT时，question部分也是预测出来的？如果预测的结果与input不一致怎么办？我理解question部分应该直接用input去提取特征，然后去预测answer部分。<br>A：不一致是正常的，不计算loss即可，包括answer也是不一致的，但是一定会计算loss；<br>A：会预测，不一定需要计算loss，业界做法有的会计算loss有的不会</p></blockquote><blockquote><p>Q：请问SFT样本的prompt可以是图片+文本的形式吗<br>A：可以的，可以接一个图像encoder，然后把图像encoder的输出拼在文本后面</p></blockquote><blockquote><p>Q：请问LLM训练过程中，如果因为设置的max_len过大导致padding过多，会有什么影响吗<br>A：不会计算loss就不影响，只是浪费计算，Padding不参与计算；Padding不会计算loss。</p></blockquote>]]></content>
+      
+      
+      
+        <tags>
+            
+            <tag> 大模型 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>PreFLMR运行记录</title>
       <link href="/2024/10/22/PreFLMR%E8%BF%90%E8%A1%8C%E8%AE%B0%E5%BD%95/"/>
       <url>/2024/10/22/PreFLMR%E8%BF%90%E8%A1%8C%E8%AE%B0%E5%BD%95/</url>
